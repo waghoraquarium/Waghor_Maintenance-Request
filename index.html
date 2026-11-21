@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ใบแจ้งซ่อม/แจ้งติดตั้ง - หว้ากอ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0b5394;
+      --primary-hover: #073763;
+      --bg: #f3f6fa;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #d1d5db;
+      --success-bg: #ecfdf5;
+      --success-border: #10b981;
+      --success-text: #065f46;
+      --error-bg: #fef2f2;
+      --error-text: #991b1b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px 12px;
+      font-family: 'Sarabun', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      background: var(--card);
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #0b5394 0%, #1c6ea4 100%);
+      color: #fff;
+      padding: 24px 28px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .header p {
+      margin: 0;
+      font-size: 15px;
+      opacity: 0.92;
+    }
+    form {
+      padding: 24px 28px 28px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 600px) {
+      .row { grid-template-columns: 1fr; }
+      form { padding: 18px; }
+    }
+    .field {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+    .req { color: #dc2626; }
+    input[type="text"], select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 15px;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(11, 83, 148, 0.14);
+    }
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 8px 0 2px;
+    }
+    .radio-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 400;
+      background: #fafafa;
+    }
+    .radio-item input { margin: 0; }
+    .hidden { display: none; }
+    .btn {
+      width: 100%;
+      padding: 13px 18px;
+      border: none;
+      border-radius: 10px;
+      background: var(--primary);
+      color: #fff;
+      font-family: inherit;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    .alert {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: 10px;
+      font-size: 15px;
+      display: none;
+    }
+    .alert.success {
+      display: block;
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+    .alert.error {
+      display: block;
+      background: var(--error-bg);
+      border: 1px solid #f87171;
+      color: var(--error-text);
+    }
+    .doc-link {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 8px 14px;
+      background: #065f46;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .note {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    /* Image upload section styling */
+    .upload-zone {
+      border: 2px dashed #93c5fd;
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--primary);
+      background: #eff6ff;
+    }
+    .upload-icon {
+      font-size: 30px;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .upload-title {
+      font-weight: 700;
+      color: var(--primary);
+      font-size: 15px;
+      margin-bottom: 2px;
+    }
+    .upload-sub {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .img-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .img-card {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #fff;
+      aspect-ratio: 1;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .img-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .img-card .del-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: rgba(220, 38, 38, 0.9);
+      color: #fff;
+      border: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .img-card .del-btn:hover {
+      background: #dc2626;
+    }
+    .img-badge {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      font-size: 11px;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .img-status {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #0b5394;
+      font-weight: 600;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>ใบแจ้งซ่อม / แจ้งติดตั้ง</h1>
+      <p>กลุ่มสนับสนุนและบริการ อุทยานวิทยาศาสตร์พระจอมเกล้า ณ หว้ากอ จังหวัดประจวบคีรีขันธ์</p>
+    </div>
+
+    <form id="repairForm">
+      <div class="row">
+        <div class="field">
+          <label>หมวดงาน (แท็บใน Google Sheets) <span class="req">*</span></label>
+          <select id="category" required>
+            <option value="งานอาคารสถานที่">งานอาคารสถานที่ (งานอาคารฯ)</option>
+            <option value="งานช่างเทคนิค">งานช่างเทคนิค (ซ่อมบำรุง/ระบบน้ำ/ไฟฟ้า)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>อาคาร <span class="req">*</span></label>
+          <select id="buildingSelect" required>
+            <option value="พิพิธภัณฑ์สัตว์น้ำ">พิพิธภัณฑ์สัตว์น้ำ</option>
+            <option value="เพาะเลี้ยงสัตว์น้ำ">เพาะเลี้ยงสัตว์น้ำ</option>
+            <option value="สุขภาพสัตว์น้ำ">สุขภาพสัตว์น้ำ</option>
+            <option value="อื่นๆ">อื่น ๆ (ระบุเอง)</option>
+          </select>
+          <input type="text" id="buildingCustom" class="hidden" placeholder="ระบุชื่ออาคาร" style="margin-top:8px;">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>ประเภทการแจ้ง <span class="req">*</span></label>
+        <div class="radio-group">
+          <label class="radio-item"><input type="radio" name="requestType" value="แจ้งซ่อม" checked> แจ้งซ่อม</label>
+          <label class="radio-item"><input type="radio" name="requestType" value="แจ้งติดตั้ง"> แจ้งติดตั้ง</label>
+          <label class="radio-item"><input type="radio" name="requestType" value="อื่น ๆ"> อื่น ๆ</label>
+        </div>
+        <input type="text" id="otherText" class="hidden" placeholder="ระบุประเภทอื่น ๆ" style="margin-top:8px;">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>สถานที่ / ตู้จัดแสดง <span class="req">*</span></label>
+          <input type="text" id="location" required placeholder="เช่น Big tank, ตู้ C9-120, ห้องสำนักงาน กพ.">
+        </div>
+
+        <div class="field">
+          <label>เรื่อง (หัวข้อในใบแจ้งซ่อม)</label>
+          <input type="text" id="subject" placeholder="เช่น แจ้งซ่อมวาล์วปีกผีเสื้อ (เว้นว่างได้)">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>รายละเอียดการแจ้ง / อาการที่พบ <span class="req">*</span></label>
+        <textarea id="detail" required placeholder="อธิบายรายละเอียดงานซ่อมหรือจุดที่ต้องการให้ติดตั้ง"></textarea>
+      </div>
+
+      <div class="field">
+        <label>แนบรูปภาพประกอบ (ถ้ามี) <span class="note" style="display:inline; font-weight:normal;">(จะแสดงในหน้าที่ 2 ของเอกสาร)</span></label>
+        <div class="upload-zone" id="uploadZone">
+          <span class="upload-icon">📷</span>
+          <div class="upload-title">คลิกเพื่อเลือกภาพ หรือลากไฟล์ภาพมาวางที่นี่</div>
+          <div class="upload-sub">รองรับสูงสุด 6 รูป (ย่อขนาดและจัดหน้าให้อัตโนมัติ)</div>
+          <input type="file" id="imageInput" accept="image/*" multiple style="display:none">
+        </div>
+        <div id="imgStatus" class="img-status">กำลังประมวลผลรูปภาพ...</div>
+        <div id="imgGrid" class="img-grid"></div>
+        <div class="note" id="imgCountText" style="margin-top: 6px;"></div>
+      </div>
+
+      <div class="field">
+        <label>ชื่อผู้แจ้ง <span class="req">*</span></label>
+        <input type="text" id="reporterName" required placeholder="เช่น นายสมชาย ใจดี">
+        <div class="note">เมื่อกดส่ง ระบบจะสร้างใบแจ้งซ่อม (Google Doc) บันทึกลงชีต และส่งเข้าคิวเครื่องปริ้นอัตโนมัติ</div>
+      </div>
+
+      <button type="submit" id="submitBtn" class="btn">ส่งใบแจ้งซ่อม</button>
+
+      <div id="statusBox" class="alert"></div>
+    </form>
+  </div>
+
+  <script>
+    // URL ของ Google Apps Script Web App สำหรับรับข้อมูลฟอร์ม (ไม่ใส่ API Key ในหน้านี้เพื่อความปลอดภัยบน Public GitHub Pages)
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwcUeTiWoxetMbZHburOufSYC99Mp746wqmr5hkYD2dlrkLk14oqRaZ94WJD9kdSEnblw/exec';
+
+    const buildingSelect = document.getElementById('buildingSelect');
+    const buildingCustom = document.getElementById('buildingCustom');
+    const otherText = document.getElementById('otherText');
+    const formEl = document.getElementById('repairForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusBox = document.getElementById('statusBox');
+    let attachedImages = [];
+    const uploadZone = document.getElementById('uploadZone');
+    const imageInput = document.getElementById('imageInput');
+    const imgGrid = document.getElementById('imgGrid');
+    const imgStatus = document.getElementById('imgStatus');
+    const imgCountText = document.getElementById('imgCountText');
+
+    uploadZone.addEventListener('click', () => imageInput.click());
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files) {
+        handleFiles(e.dataTransfer.files);
+      }
+    });
+
+    imageInput.addEventListener('change', () => {
+      if (imageInput.files) {
+        handleFiles(imageInput.files);
+        imageInput.value = '';
+      }
+    });
+
+    async function handleFiles(files) {
+      if (!files || files.length === 0) return;
+      const remainingSlots = 6 - attachedImages.length;
+      if (remainingSlots <= 0) {
+        alert('แนบภาพได้สูงสุด 6 รูปครับ');
+        return;
+      }
+      const filesToProcess = Array.from(files).slice(0, remainingSlots);
+      imgStatus.style.display = 'block';
+      imgStatus.textContent = `กำลังย่อขนาดรูปภาพ ${filesToProcess.length} รูป...`;
+
+      for (const file of filesToProcess) {
+        if (!file.type.startsWith('image/')) continue;
+        try {
+          const processed = await compressAndProcessImage(file);
+          attachedImages.push(processed);
+        } catch (err) {
+          console.error('Image compression error:', err);
+        }
+      }
+
+      imgStatus.style.display = 'none';
+      renderImageGrid();
+    }
+
+    function compressAndProcessImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const maxDim = 1280;
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            resolve({
+              name: file.name,
+              mimeType: 'image/jpeg',
+              data: dataUrl.split(',')[1],
+              previewUrl: dataUrl
+            });
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderImageGrid() {
+      imgGrid.innerHTML = '';
+      if (attachedImages.length === 0) {
+        imgCountText.textContent = '';
+        return;
+      }
+      imgCountText.textContent = `แนบแล้ว ${attachedImages.length} / 6 รูป (จัดลงหน้าที่ 2 ของเอกสารอัตโนมัติ)`;
+
+      attachedImages.forEach((imgObj, idx) => {
+        const card = document.createElement('div');
+        card.className = 'img-card';
+
+        const imgEl = document.createElement('img');
+        imgEl.src = imgObj.previewUrl;
+        imgEl.alt = imgObj.name;
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'del-btn';
+        delBtn.innerHTML = '&times;';
+        delBtn.title = 'ลบภาพนี้';
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          attachedImages.splice(idx, 1);
+          renderImageGrid();
+        };
+
+        const badge = document.createElement('div');
+        badge.className = 'img-badge';
+        badge.textContent = `#${idx + 1}`;
+
+        card.appendChild(imgEl);
+        card.appendChild(delBtn);
+        card.appendChild(badge);
+        imgGrid.appendChild(card);
+      });
+    }
+
+    buildingSelect.addEventListener('change', () => {
+      const isCustom = buildingSelect.value === 'อื่นๆ';
+      buildingCustom.classList.toggle('hidden', !isCustom);
+      buildingCustom.required = isCustom;
+    });
+
+    document.querySelectorAll('input[name="requestType"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const isOther = document.querySelector('input[name="requestType"]:checked').value === 'อื่น ๆ';
+        otherText.classList.toggle('hidden', !isOther);
+        otherText.required = isOther;
+      });
+    });
+
+    formEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      statusBox.className = 'alert';
+      statusBox.innerHTML = '';
+
+      const buildingVal = buildingSelect.value === 'อื่นๆ'
+        ? buildingCustom.value.trim()
+        : buildingSelect.value;
+
+      const payload = {
+        category: document.getElementById('category').value,
+        requestType: document.querySelector('input[name="requestType"]:checked').value,
+        otherText: otherText.value.trim(),
+        building: buildingVal,
+        location: document.getElementById('location').value.trim(),
+        subject: document.getElementById('subject').value.trim(),
+        detail: document.getElementById('detail').value.trim(),
+        reporterName: document.getElementById('reporterName').value.trim(),
+        images: attachedImages.map(img => ({
+          name: img.name,
+          mimeType: img.mimeType,
+          data: img.data
+        }))
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'กำลังสร้างใบแจ้งซ่อมและส่งคิวพิมพ์...';
+
+      try {
+        // ใช้ text/plain;charset=utf-8 เพื่อหลีกเลี่ยง CORS Preflight (OPTIONS) กับ Google Apps Script
+        const response = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const res = await response.json();
+        if (res && res.ok) {
+          statusBox.className = 'alert success';
+          statusBox.innerHTML =
+            `<strong>บันทึกใบแจ้งซ่อมเรียบร้อยแล้ว!</strong><br>` +
+            `รหัสคิวพิมพ์: <b>${res.jobId}</b> | แท็บ: ${res.sheetName} (แถวที่ ${res.rowNumber})<br>` +
+            `ระบบได้ส่งใบแจ้งซ่อมเข้าคิวเครื่องปริ้นอัตโนมัติแล้ว<br>` +
+            `<a class="doc-link" href="${res.docUrl}" target="_blank">เปิดดูเอกสารใบแจ้งซ่อม (Google Doc)</a>`;
+          formEl.reset();
+          buildingCustom.classList.add('hidden');
+          otherText.classList.add('hidden');
+          attachedImages = [];
+          renderImageGrid();
+        } else {
+          showError((res && res.error) ? res.error : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+        }
+      } catch (err) {
+        showError(err && err.message ? err.message : String(err));
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'ส่งใบแจ้งซ่อม';
+      }
+    });
+
+    function showError(msg) {
+      statusBox.className = 'alert error';
+      statusBox.textContent = 'ไม่สามารถส่งข้อมูลได้: ' + msg;
+    }
+  </script>
+</body>
+</html>
