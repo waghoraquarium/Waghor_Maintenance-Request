@@ -516,6 +516,22 @@
       to { transform: rotate(360deg); }
     }
 
+
+    .footer-credit {
+      max-width: 680px;
+      margin: 14px auto 0;
+      padding: 0 12px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .footer-credit strong {
+      font-weight: 600;
+      color: var(--text);
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -681,6 +697,11 @@
       <div id="statusBox" class="alert" role="status" aria-live="polite"></div>
     </form>
   </main>
+
+  <footer class="footer-credit">
+    พัฒนาโดย <strong>นราธิป ลีธีระ (นักวิชาการศึกษา)</strong><br>
+    งานส่งเสริมวิชาการ และพัฒนาสื่อ กลุ่มพิพิธภัณฑ์สัตว์น้ำ
+  </footer>
 
   <script>
     // URL ของ Google Apps Script Web App สำหรับรับข้อมูลฟอร์ม (ไม่เก็บ Secret ในหน้านี้)
