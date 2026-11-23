@@ -3,32 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>ใบแจ้งซ่อม/แจ้งติดตั้ง - หว้ากอ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --primary: #0b5394;
+      --primary-grad-end: #1c6ea4;
       --primary-hover: #073763;
+      --primary-active: #05284a;
+      --primary-soft: #eff6ff;
+      --primary-border: #93c5fd;
+      --focus-ring: rgba(11, 83, 148, 0.16);
+
       --bg: #f3f6fa;
       --card: #ffffff;
+      --surface-subtle: #f8fafc;
+      --pill-bg: #fafafa;
       --text: #1f2937;
-      --muted: #6b7280;
+      --muted: #64748b;
       --border: #d1d5db;
+
       --success-bg: #ecfdf5;
       --success-border: #10b981;
       --success-text: #065f46;
+      --success-btn: #047857;
+
+      --warning-bg: #fffbeb;
+      --warning-border: #f59e0b;
+      --warning-text: #92400e;
+
+      --danger: #dc2626;
       --error-bg: #fef2f2;
+      --error-border: #f87171;
       --error-text: #991b1b;
+
+      --disabled-bg: #64748b;
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       padding: 20px 12px;
       font-family: 'Sarabun', sans-serif;
+      font-size: 16px;
       background: var(--bg);
       color: var(--text);
       line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
+
     .container {
       max-width: 680px;
       margin: 0 auto;
@@ -37,309 +66,631 @@
       box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
       overflow: hidden;
     }
+
     .header {
-      background: linear-gradient(135deg, #0b5394 0%, #1c6ea4 100%);
-      color: #fff;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-grad-end) 100%);
+      color: #ffffff;
       padding: 24px 28px;
       text-align: center;
     }
+
     .header h1 {
       margin: 0 0 6px;
       font-size: 24px;
       font-weight: 700;
     }
+
     .header p {
       margin: 0;
       font-size: 15px;
-      opacity: 0.92;
+      color: rgba(255, 255, 255, 0.94);
     }
+
     form {
       padding: 24px 28px 28px;
     }
+
     .row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
     }
+
     @media (max-width: 600px) {
-      .row { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; gap: 0; }
       form { padding: 18px; }
     }
+
     .field {
       margin-bottom: 16px;
     }
-    label {
+
+    label, legend {
       display: block;
       font-weight: 600;
       margin-bottom: 6px;
       font-size: 15px;
     }
-    .req { color: #dc2626; }
-    input[type="text"], select, textarea {
+
+    fieldset {
+      border: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .req { color: var(--danger); }
+
+    input[type="text"],
+    input[type="password"],
+    select,
+    textarea {
       width: 100%;
+      min-height: 44px;
       padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 8px;
       font-family: inherit;
-      font-size: 15px;
-      background: #fff;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      font-size: 16px; /* >=16px prevents iOS Safari auto-zoom */
+      color: var(--text);
+      background: var(--card);
+      transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
     }
-    input:focus, select:focus, textarea:focus {
+
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(11, 83, 148, 0.14);
+      box-shadow: 0 0 0 3px var(--focus-ring);
     }
+
     textarea {
       min-height: 110px;
       resize: vertical;
     }
+
+    /* Keep horizontal pill row just like the original layout */
     .radio-group {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      padding: 8px 0 2px;
+      gap: 10px;
+      padding: 4px 0 2px;
     }
+
     .radio-item {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      min-height: 42px;
       padding: 8px 14px;
+      margin-bottom: 0;
       border: 1px solid var(--border);
       border-radius: 8px;
       cursor: pointer;
       font-weight: 400;
-      background: #fafafa;
+      font-size: 15px;
+      background: var(--pill-bg);
+      transition: background 140ms var(--ease-out),
+                  border-color 140ms var(--ease-out),
+                  color 140ms var(--ease-out),
+                  transform 120ms var(--ease-out);
     }
-    .radio-item input { margin: 0; }
-    .hidden { display: none; }
+
+    .radio-item:hover {
+      border-color: var(--primary-border);
+      background: var(--primary-soft);
+    }
+
+    .radio-item:active {
+      transform: scale(0.98);
+    }
+
+    .radio-item:has(input:checked) {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .radio-item:has(input:focus-visible) {
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    .radio-item input {
+      margin: 0;
+      accent-color: var(--primary);
+      width: 16px;
+      height: 16px;
+    }
+
+    .conditional-input {
+      margin-top: 8px;
+      animation: fadeSlideIn 180ms var(--ease-out);
+    }
+
+    .hidden { display: none !important; }
+
+    /* Honeypot field (hidden from humans & assistive tech) */
+    .hp-field {
+      position: absolute;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* PIN Input */
+    .pin-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .pin-wrap input {
+      padding-right: 46px;
+    }
+
+    .pin-toggle {
+      position: absolute;
+      right: 2px;
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 140ms var(--ease-out), background 140ms var(--ease-out);
+    }
+
+    .pin-toggle:hover {
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .pin-toggle:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+    }
+
+    .remember-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin: 6px 0 0;
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .remember-label input {
+      margin: 0;
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+    }
+
     .btn {
       width: 100%;
+      min-height: 48px;
       padding: 13px 18px;
       border: none;
       border-radius: 10px;
       background: var(--primary);
-      color: #fff;
+      color: #ffffff;
       font-family: inherit;
       font-size: 17px;
       font-weight: 700;
       cursor: pointer;
-      transition: background 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background 150ms var(--ease-out), transform 120ms var(--ease-out);
     }
-    .btn:hover { background: var(--primary-hover); }
+
+    .btn:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn:active:not(:disabled) {
+      background: var(--primary-active);
+      transform: scale(0.985);
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
     .btn:disabled {
-      background: #9ca3af;
+      background: var(--disabled-bg);
+      color: #ffffff;
       cursor: not-allowed;
     }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
     .alert {
       margin-top: 18px;
       padding: 16px;
       border-radius: 10px;
       font-size: 15px;
       display: none;
+      animation: fadeSlideIn 180ms var(--ease-out);
     }
+
     .alert.success {
       display: block;
       background: var(--success-bg);
       border: 1px solid var(--success-border);
       color: var(--success-text);
     }
+
     .alert.error {
       display: block;
       background: var(--error-bg);
-      border: 1px solid #f87171;
+      border: 1px solid var(--error-border);
       color: var(--error-text);
     }
+
+    .alert-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
     .doc-link {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
       margin-top: 10px;
       padding: 8px 14px;
-      background: #065f46;
-      color: #fff;
+      background: var(--success-btn);
+      color: #ffffff;
       text-decoration: none;
       border-radius: 8px;
       font-weight: 600;
+      transition: background 140ms var(--ease-out), transform 120ms var(--ease-out);
     }
+
+    .doc-link:hover { background: var(--success-text); }
+    .doc-link:active { transform: scale(0.98); }
+
     .note {
       font-size: 13px;
       color: var(--muted);
       margin-top: 4px;
     }
+
     /* Image upload section styling */
     .upload-zone {
-      border: 2px dashed #93c5fd;
-      background: #f8fafc;
+      border: 2px dashed var(--primary-border);
+      background: var(--surface-subtle);
       border-radius: 12px;
       padding: 18px;
       text-align: center;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: border-color 180ms var(--ease-out),
+                  background 180ms var(--ease-out),
+                  box-shadow 180ms var(--ease-out);
       position: relative;
     }
-    .upload-zone:hover, .upload-zone.dragover {
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
       border-color: var(--primary);
-      background: #eff6ff;
+      background: var(--primary-soft);
     }
+
+    .upload-zone:focus-visible {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
     .upload-icon {
-      font-size: 30px;
-      margin-bottom: 4px;
-      display: block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      margin-bottom: 6px;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--primary);
     }
+
     .upload-title {
       font-weight: 700;
       color: var(--primary);
       font-size: 15px;
       margin-bottom: 2px;
     }
+
     .upload-sub {
       font-size: 13px;
       color: var(--muted);
     }
+
     .img-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
       gap: 12px;
       margin-top: 12px;
     }
+
     .img-card {
       position: relative;
       border-radius: 8px;
       overflow: hidden;
       border: 1px solid var(--border);
-      background: #fff;
+      background: var(--card);
       aspect-ratio: 1;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+      animation: cardEnter 180ms var(--ease-out);
     }
+
     .img-card img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
     }
+
+    /* >=44x44px touch hit target via ::after without cluttering thumbnail */
     .img-card .del-btn {
       position: absolute;
-      top: 4px;
-      right: 4px;
-      background: rgba(220, 38, 38, 0.9);
-      color: #fff;
+      top: 5px;
+      right: 5px;
+      background: rgba(220, 38, 38, 0.92);
+      color: #ffffff;
       border: none;
-      width: 22px;
-      height: 22px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       cursor: pointer;
-      font-weight: bold;
-      font-size: 13px;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.15s;
+      padding: 0;
+      transition: background 140ms var(--ease-out), transform 120ms var(--ease-out);
     }
-    .img-card .del-btn:hover {
-      background: #dc2626;
+
+    .img-card .del-btn::after {
+      content: '';
+      position: absolute;
+      inset: -9px;
     }
+
+    .img-card .del-btn:hover { background: var(--danger); }
+    .img-card .del-btn:active { transform: scale(0.92); }
+
     .img-badge {
       position: absolute;
       bottom: 4px;
       left: 4px;
-      background: rgba(0, 0, 0, 0.65);
-      color: #fff;
+      background: rgba(0, 0, 0, 0.68);
+      color: #ffffff;
       font-size: 11px;
       padding: 1px 5px;
       border-radius: 4px;
     }
+
     .img-status {
       margin-top: 8px;
       font-size: 13px;
-      color: #0b5394;
+      color: var(--primary);
       font-weight: 600;
       display: none;
+    }
+
+    .img-warning {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+      font-size: 13px;
+      display: none;
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes cardEnter {
+      from { opacity: 0; transform: scale(0.94); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
+  <main class="container">
+    <header class="header">
       <h1>ใบแจ้งซ่อม / แจ้งติดตั้ง</h1>
       <p>กลุ่มสนับสนุนและบริการ อุทยานวิทยาศาสตร์พระจอมเกล้า ณ หว้ากอ จังหวัดประจวบคีรีขันธ์</p>
-    </div>
+    </header>
 
-    <form id="repairForm">
+    <form id="repairForm" novalidate>
+      <!-- Honeypot field for bot filtering -->
+      <div class="hp-field" aria-hidden="true">
+        <label for="websiteUrl">Website</label>
+        <input type="text" id="websiteUrl" name="websiteUrl" tabindex="-1" autocomplete="off">
+      </div>
+
       <div class="row">
         <div class="field">
-          <label>หมวดงาน (แท็บใน Google Sheets) <span class="req">*</span></label>
-          <select id="category" required>
+          <label for="category">หมวดงาน (แท็บใน Google Sheets) <span class="req" aria-hidden="true">*</span></label>
+          <select id="category" name="category" required>
             <option value="งานอาคารสถานที่">งานอาคารสถานที่ (งานอาคารฯ)</option>
             <option value="งานช่างเทคนิค">งานช่างเทคนิค (ซ่อมบำรุง/ระบบน้ำ/ไฟฟ้า)</option>
           </select>
         </div>
 
         <div class="field">
-          <label>อาคาร <span class="req">*</span></label>
-          <select id="buildingSelect" required>
+          <label for="buildingSelect">อาคาร <span class="req" aria-hidden="true">*</span></label>
+          <select id="buildingSelect" name="buildingSelect" required>
             <option value="พิพิธภัณฑ์สัตว์น้ำ">พิพิธภัณฑ์สัตว์น้ำ</option>
             <option value="เพาะเลี้ยงสัตว์น้ำ">เพาะเลี้ยงสัตว์น้ำ</option>
             <option value="สุขภาพสัตว์น้ำ">สุขภาพสัตว์น้ำ</option>
             <option value="อื่นๆ">อื่น ๆ (ระบุเอง)</option>
           </select>
-          <input type="text" id="buildingCustom" class="hidden" placeholder="ระบุชื่ออาคาร" style="margin-top:8px;">
+          <input
+            type="text"
+            id="buildingCustom"
+            name="buildingCustom"
+            class="conditional-input hidden"
+            placeholder="ระบุชื่ออาคาร"
+            aria-label="ระบุชื่ออาคารเพิ่มเติม"
+          >
         </div>
       </div>
 
       <div class="field">
-        <label>ประเภทการแจ้ง <span class="req">*</span></label>
-        <div class="radio-group">
-          <label class="radio-item"><input type="radio" name="requestType" value="แจ้งซ่อม" checked> แจ้งซ่อม</label>
-          <label class="radio-item"><input type="radio" name="requestType" value="แจ้งติดตั้ง"> แจ้งติดตั้ง</label>
-          <label class="radio-item"><input type="radio" name="requestType" value="อื่น ๆ"> อื่น ๆ</label>
-        </div>
-        <input type="text" id="otherText" class="hidden" placeholder="ระบุประเภทอื่น ๆ" style="margin-top:8px;">
+        <fieldset>
+          <legend>ประเภทการแจ้ง <span class="req" aria-hidden="true">*</span></legend>
+          <div class="radio-group">
+            <label class="radio-item" for="typeRepair">
+              <input type="radio" id="typeRepair" name="requestType" value="แจ้งซ่อม" checked> แจ้งซ่อม
+            </label>
+            <label class="radio-item" for="typeInstall">
+              <input type="radio" id="typeInstall" name="requestType" value="แจ้งติดตั้ง"> แจ้งติดตั้ง
+            </label>
+            <label class="radio-item" for="typeOther">
+              <input type="radio" id="typeOther" name="requestType" value="อื่น ๆ"> อื่น ๆ
+            </label>
+          </div>
+          <input
+            type="text"
+            id="otherText"
+            name="otherText"
+            class="conditional-input hidden"
+            placeholder="ระบุประเภทอื่น ๆ"
+            aria-label="ระบุประเภทการแจ้งเพิ่มเติม"
+          >
+        </fieldset>
       </div>
 
       <div class="row">
         <div class="field">
-          <label>สถานที่ / ตู้จัดแสดง <span class="req">*</span></label>
-          <input type="text" id="location" required placeholder="เช่น Big tank, ตู้ C9-120, ห้องสำนักงาน กพ.">
+          <label for="location">สถานที่ / ตู้จัดแสดง <span class="req" aria-hidden="true">*</span></label>
+          <input type="text" id="location" name="location" required placeholder="เช่น Big tank, ตู้ C9-120, ห้องสำนักงาน กพ.">
         </div>
 
         <div class="field">
-          <label>เรื่อง (หัวข้อในใบแจ้งซ่อม)</label>
-          <input type="text" id="subject" placeholder="เช่น แจ้งซ่อมวาล์วปีกผีเสื้อ (เว้นว่างได้)">
+          <label for="subject">เรื่อง (หัวข้อในใบแจ้งซ่อม)</label>
+          <input type="text" id="subject" name="subject" placeholder="เช่น แจ้งซ่อมวาล์วปีกผีเสื้อ (เว้นว่างได้)">
         </div>
       </div>
 
       <div class="field">
-        <label>รายละเอียดการแจ้ง / อาการที่พบ <span class="req">*</span></label>
-        <textarea id="detail" required placeholder="อธิบายรายละเอียดงานซ่อมหรือจุดที่ต้องการให้ติดตั้ง"></textarea>
+        <label for="detail">รายละเอียดการแจ้ง / อาการที่พบ <span class="req" aria-hidden="true">*</span></label>
+        <textarea id="detail" name="detail" required placeholder="อธิบายรายละเอียดงานซ่อมหรือจุดที่ต้องการให้ติดตั้ง"></textarea>
       </div>
 
       <div class="field">
-        <label>แนบรูปภาพประกอบ (ถ้ามี) <span class="note" style="display:inline; font-weight:normal;">(จะแสดงในหน้าที่ 2 ของเอกสาร)</span></label>
-        <div class="upload-zone" id="uploadZone">
-          <span class="upload-icon">📷</span>
+        <label for="imageInput">แนบรูปภาพประกอบ (ถ้ามี) <span class="note" style="display:inline; font-weight:normal;">(จะแสดงในหน้าที่ 2 ของเอกสาร)</span></label>
+        <div
+          class="upload-zone"
+          id="uploadZone"
+          role="button"
+          tabindex="0"
+          aria-label="คลิกหรือลากไฟล์ภาพมาวางเพื่อแนบรูปประกอบ สูงสุด 6 รูป"
+        >
+          <span class="upload-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </span>
           <div class="upload-title">คลิกเพื่อเลือกภาพ หรือลากไฟล์ภาพมาวางที่นี่</div>
-          <div class="upload-sub">รองรับสูงสุด 6 รูป (ย่อขนาดและจัดหน้าให้อัตโนมัติ)</div>
+          <div class="upload-sub">รองรับสูงสุด 6 รูป (ไม่เกิน 15 MB/รูป ย่อขนาดและจัดหน้าให้อัตโนมัติ)</div>
           <input type="file" id="imageInput" accept="image/*" multiple style="display:none">
         </div>
-        <div id="imgStatus" class="img-status">กำลังประมวลผลรูปภาพ...</div>
+        <div id="imgStatus" class="img-status" role="status" aria-live="polite">กำลังประมวลผลรูปภาพ...</div>
+        <div id="imgWarning" class="img-warning" role="alert"></div>
         <div id="imgGrid" class="img-grid"></div>
-        <div class="note" id="imgCountText" style="margin-top: 6px;"></div>
+        <div class="note" id="imgCountText" style="margin-top: 6px;" aria-live="polite"></div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="reporterName">ชื่อผู้แจ้ง <span class="req" aria-hidden="true">*</span></label>
+          <input type="text" id="reporterName" name="reporterName" required autocomplete="name" placeholder="เช่น นายสมชาย ใจดี">
+        </div>
+
+        <div class="field">
+          <label for="staffPin">รหัสเจ้าหน้าที่ (PIN) <span class="req" aria-hidden="true">*</span></label>
+          <div class="pin-wrap">
+            <input
+              type="password"
+              id="staffPin"
+              name="staffPin"
+              required
+              inputmode="numeric"
+              autocomplete="current-password"
+              placeholder="กรอกรหัส PIN"
+            >
+            <button
+              type="button"
+              id="pinToggle"
+              class="pin-toggle"
+              aria-label="แสดงรหัส PIN"
+              aria-pressed="false"
+            >
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="field">
-        <label>ชื่อผู้แจ้ง <span class="req">*</span></label>
-        <input type="text" id="reporterName" required placeholder="เช่น นายสมชาย ใจดี">
+        <label class="remember-label" for="rememberMe">
+          <input type="checkbox" id="rememberMe" checked>
+          จำชื่อผู้แจ้งและรหัส PIN ไว้ในเครื่องนี้
+        </label>
         <div class="note">เมื่อกดส่ง ระบบจะสร้างใบแจ้งซ่อม (Google Doc) บันทึกลงชีต และส่งเข้าคิวเครื่องปริ้นอัตโนมัติ</div>
       </div>
 
       <button type="submit" id="submitBtn" class="btn">ส่งใบแจ้งซ่อม</button>
 
-      <div id="statusBox" class="alert"></div>
+      <div id="statusBox" class="alert" role="status" aria-live="polite"></div>
     </form>
-  </div>
+  </main>
 
   <script>
-    // URL ของ Google Apps Script Web App สำหรับรับข้อมูลฟอร์ม (ไม่ใส่ API Key ในหน้านี้เพื่อความปลอดภัยบน Public GitHub Pages)
+    // URL ของ Google Apps Script Web App สำหรับรับข้อมูลฟอร์ม (ไม่เก็บ Secret ในหน้านี้)
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwcUeTiWoxetMbZHburOufSYC99Mp746wqmr5hkYD2dlrkLk14oqRaZ94WJD9kdSEnblw/exec';
+
+    const MAX_IMAGES = 6;
+    const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB
+    const STORAGE_KEY_NAME = 'waghor_repair_reporter_name';
+    const STORAGE_KEY_PIN = 'waghor_repair_staff_pin';
+    const STORAGE_KEY_REMEMBER = 'waghor_repair_remember';
 
     const buildingSelect = document.getElementById('buildingSelect');
     const buildingCustom = document.getElementById('buildingCustom');
@@ -347,14 +698,59 @@
     const formEl = document.getElementById('repairForm');
     const submitBtn = document.getElementById('submitBtn');
     const statusBox = document.getElementById('statusBox');
-    let attachedImages = [];
     const uploadZone = document.getElementById('uploadZone');
     const imageInput = document.getElementById('imageInput');
     const imgGrid = document.getElementById('imgGrid');
     const imgStatus = document.getElementById('imgStatus');
+    const imgWarning = document.getElementById('imgWarning');
     const imgCountText = document.getElementById('imgCountText');
+    const reporterNameInput = document.getElementById('reporterName');
+    const staffPinInput = document.getElementById('staffPin');
+    const pinToggle = document.getElementById('pinToggle');
+    const rememberMe = document.getElementById('rememberMe');
+    const hpInput = document.getElementById('websiteUrl');
+
+    let attachedImages = [];
+
+    // Restore remembered reporter name & PIN
+    (function restoreSavedStaff() {
+      try {
+        const shouldRemember = localStorage.getItem(STORAGE_KEY_REMEMBER);
+        if (shouldRemember === 'false') {
+          rememberMe.checked = false;
+          return;
+        }
+        const savedName = localStorage.getItem(STORAGE_KEY_NAME);
+        const savedPin = localStorage.getItem(STORAGE_KEY_PIN);
+        if (savedName) reporterNameInput.value = savedName;
+        if (savedPin) staffPinInput.value = savedPin;
+      } catch (_) {}
+    })();
+
+    rememberMe.addEventListener('change', () => {
+      try {
+        localStorage.setItem(STORAGE_KEY_REMEMBER, String(rememberMe.checked));
+        if (!rememberMe.checked) {
+          localStorage.removeItem(STORAGE_KEY_NAME);
+          localStorage.removeItem(STORAGE_KEY_PIN);
+        }
+      } catch (_) {}
+    });
+
+    pinToggle.addEventListener('click', () => {
+      const isHidden = staffPinInput.type === 'password';
+      staffPinInput.type = isHidden ? 'text' : 'password';
+      pinToggle.setAttribute('aria-pressed', String(isHidden));
+      pinToggle.setAttribute('aria-label', isHidden ? 'ซ่อนรหัส PIN' : 'แสดงรหัส PIN');
+    });
 
     uploadZone.addEventListener('click', () => imageInput.click());
+    uploadZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        imageInput.click();
+      }
+    });
 
     uploadZone.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -380,28 +776,58 @@
       }
     });
 
-    async function handleFiles(files) {
-      if (!files || files.length === 0) return;
-      const remainingSlots = 6 - attachedImages.length;
-      if (remainingSlots <= 0) {
-        alert('แนบภาพได้สูงสุด 6 รูปครับ');
+    function showImageWarning(msg) {
+      if (!msg) {
+        imgWarning.style.display = 'none';
+        imgWarning.textContent = '';
         return;
       }
-      const filesToProcess = Array.from(files).slice(0, remainingSlots);
+      imgWarning.textContent = msg;
+      imgWarning.style.display = 'block';
+    }
+
+    async function handleFiles(files) {
+      if (!files || files.length === 0) return;
+      showImageWarning('');
+
+      const remainingSlots = MAX_IMAGES - attachedImages.length;
+      if (remainingSlots <= 0) {
+        showImageWarning(`แนบภาพได้สูงสุด ${MAX_IMAGES} รูป หากต้องการเปลี่ยนภาพกรุณาลบภาพเดิมก่อน`);
+        return;
+      }
+
+      const incoming = Array.from(files);
+      const warnings = [];
+      if (incoming.length > remainingSlots) {
+        warnings.push(`เลือกได้อีก ${remainingSlots} รูป (ระบบนำเข้าเฉพาะ ${remainingSlots} รูปแรก)`);
+      }
+
+      const filesToProcess = incoming.slice(0, remainingSlots);
       imgStatus.style.display = 'block';
       imgStatus.textContent = `กำลังย่อขนาดรูปภาพ ${filesToProcess.length} รูป...`;
 
       for (const file of filesToProcess) {
-        if (!file.type.startsWith('image/')) continue;
+        if (!file.type || !file.type.startsWith('image/')) {
+          warnings.push(`ข้ามไฟล์ "${file.name}" เนื่องจากไม่ใช่ไฟล์รูปภาพ`);
+          continue;
+        }
+        if (file.size > MAX_FILE_BYTES) {
+          warnings.push(`ข้ามไฟล์ "${file.name}" เนื่องจากขนาดเกิน 15 MB`);
+          continue;
+        }
         try {
           const processed = await compressAndProcessImage(file);
           attachedImages.push(processed);
         } catch (err) {
           console.error('Image compression error:', err);
+          warnings.push(`ไม่สามารถอ่านไฟล์ "${file.name}" ได้ กรุณาลองเลือกภาพใหม่`);
         }
       }
 
       imgStatus.style.display = 'none';
+      if (warnings.length > 0) {
+        showImageWarning(warnings.join(' • '));
+      }
       renderImageGrid();
     }
 
@@ -445,12 +871,12 @@
     }
 
     function renderImageGrid() {
-      imgGrid.innerHTML = '';
+      imgGrid.textContent = '';
       if (attachedImages.length === 0) {
         imgCountText.textContent = '';
         return;
       }
-      imgCountText.textContent = `แนบแล้ว ${attachedImages.length} / 6 รูป (จัดลงหน้าที่ 2 ของเอกสารอัตโนมัติ)`;
+      imgCountText.textContent = `แนบแล้ว ${attachedImages.length} / ${MAX_IMAGES} รูป (จัดลงหน้าที่ 2 ของเอกสารอัตโนมัติ)`;
 
       attachedImages.forEach((imgObj, idx) => {
         const card = document.createElement('div');
@@ -458,18 +884,22 @@
 
         const imgEl = document.createElement('img');
         imgEl.src = imgObj.previewUrl;
-        imgEl.alt = imgObj.name;
+        imgEl.alt = `รูปประกอบที่ ${idx + 1}: ${imgObj.name}`;
 
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.className = 'del-btn';
-        delBtn.innerHTML = '&times;';
-        delBtn.title = 'ลบภาพนี้';
-        delBtn.onclick = (e) => {
+        delBtn.setAttribute('aria-label', `ลบรูปภาพที่ ${idx + 1}`);
+        delBtn.title = `ลบรูปภาพที่ ${idx + 1}`;
+        delBtn.innerHTML =
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">' +
+          '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        delBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           attachedImages.splice(idx, 1);
+          showImageWarning('');
           renderImageGrid();
-        };
+        });
 
         const badge = document.createElement('div');
         badge.className = 'img-badge';
@@ -482,47 +912,174 @@
       });
     }
 
-    buildingSelect.addEventListener('change', () => {
-      const isCustom = buildingSelect.value === 'อื่นๆ';
-      buildingCustom.classList.toggle('hidden', !isCustom);
-      buildingCustom.required = isCustom;
+    function syncConditionalFields() {
+      const isCustomBuilding = buildingSelect.value === 'อื่นๆ';
+      buildingCustom.classList.toggle('hidden', !isCustomBuilding);
+      buildingCustom.required = isCustomBuilding;
+      if (!isCustomBuilding) {
+        buildingCustom.value = '';
+      }
+
+      const checkedRadio = document.querySelector('input[name="requestType"]:checked');
+      const isOtherType = checkedRadio && checkedRadio.value === 'อื่น ๆ';
+      otherText.classList.toggle('hidden', !isOtherType);
+      otherText.required = isOtherType;
+      if (!isOtherType) {
+        otherText.value = '';
+      }
+    }
+
+    buildingSelect.addEventListener('change', syncConditionalFields);
+    document.querySelectorAll('input[name="requestType"]').forEach((radio) => {
+      radio.addEventListener('change', syncConditionalFields);
     });
 
-    document.querySelectorAll('input[name="requestType"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        const isOther = document.querySelector('input[name="requestType"]:checked').value === 'อื่น ๆ';
-        otherText.classList.toggle('hidden', !isOther);
-        otherText.required = isOther;
-      });
-    });
+    function isSafeGoogleDocUrl(rawUrl) {
+      if (typeof rawUrl !== 'string' || !rawUrl.trim()) return false;
+      try {
+        const parsed = new URL(rawUrl);
+        return parsed.protocol === 'https:' && parsed.hostname === 'docs.google.com';
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function setSubmitLoading(isLoading) {
+      submitBtn.disabled = isLoading;
+      submitBtn.setAttribute('aria-busy', String(isLoading));
+      submitBtn.textContent = '';
+
+      if (isLoading) {
+        const spinner = document.createElement('span');
+        spinner.className = 'spinner';
+        spinner.setAttribute('aria-hidden', 'true');
+        const label = document.createElement('span');
+        label.textContent = 'กำลังสร้างใบแจ้งซ่อมและส่งคิวพิมพ์...';
+        submitBtn.appendChild(spinner);
+        submitBtn.appendChild(label);
+      } else {
+        submitBtn.textContent = 'ส่งใบแจ้งซ่อม';
+      }
+    }
+
+    function showSuccess(res) {
+      statusBox.className = 'alert success';
+      statusBox.setAttribute('role', 'status');
+      statusBox.textContent = '';
+
+      const title = document.createElement('div');
+      title.className = 'alert-title';
+      title.textContent = 'บันทึกใบแจ้งซ่อมเรียบร้อยแล้ว!';
+
+      const meta = document.createElement('div');
+      const jobId = res.jobId != null ? String(res.jobId) : '-';
+      const sheetName = res.sheetName != null ? String(res.sheetName) : '-';
+      const rowNumber = res.rowNumber != null ? String(res.rowNumber) : '-';
+      meta.textContent = `รหัสคิวพิมพ์: ${jobId} | แท็บ: ${sheetName} (แถวที่ ${rowNumber})`;
+
+      const desc = document.createElement('div');
+      desc.textContent = 'ระบบได้ส่งใบแจ้งซ่อมเข้าคิวเครื่องปริ้นอัตโนมัติแล้ว';
+
+      statusBox.appendChild(title);
+      statusBox.appendChild(meta);
+      statusBox.appendChild(desc);
+
+      if (isSafeGoogleDocUrl(res.docUrl)) {
+        const link = document.createElement('a');
+        link.className = 'doc-link';
+        link.href = res.docUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'เปิดดูเอกสารใบแจ้งซ่อม (Google Doc)';
+        statusBox.appendChild(link);
+      }
+
+      scrollToStatus();
+    }
+
+    function showError(msg) {
+      statusBox.className = 'alert error';
+      statusBox.setAttribute('role', 'alert');
+      statusBox.textContent = '';
+
+      const title = document.createElement('div');
+      title.className = 'alert-title';
+      title.textContent = 'ไม่สามารถส่งข้อมูลได้';
+
+      const body = document.createElement('div');
+      body.textContent = msg;
+
+      statusBox.appendChild(title);
+      statusBox.appendChild(body);
+      scrollToStatus();
+    }
+
+    function scrollToStatus() {
+      const rect = statusBox.getBoundingClientRect();
+      const targetY = window.scrollY + rect.top - 24;
+      window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+    }
 
     formEl.addEventListener('submit', async (e) => {
       e.preventDefault();
       statusBox.className = 'alert';
-      statusBox.innerHTML = '';
+      statusBox.textContent = '';
+
+      if (hpInput.value.trim() !== '') {
+        return;
+      }
+
+      syncConditionalFields();
+
+      if (!formEl.checkValidity()) {
+        formEl.reportValidity();
+        return;
+      }
 
       const buildingVal = buildingSelect.value === 'อื่นๆ'
         ? buildingCustom.value.trim()
         : buildingSelect.value;
 
+      const reporterName = reporterNameInput.value.trim();
+      const staffPin = staffPinInput.value.trim();
+
+      if (!buildingVal) {
+        buildingCustom.focus();
+        showError('กรุณาระบุชื่ออาคาร');
+        return;
+      }
+
+      try {
+        localStorage.setItem(STORAGE_KEY_REMEMBER, String(rememberMe.checked));
+        if (rememberMe.checked) {
+          localStorage.setItem(STORAGE_KEY_NAME, reporterName);
+          localStorage.setItem(STORAGE_KEY_PIN, staffPin);
+        } else {
+          localStorage.removeItem(STORAGE_KEY_NAME);
+          localStorage.removeItem(STORAGE_KEY_PIN);
+        }
+      } catch (_) {}
+
+      const checkedType = document.querySelector('input[name="requestType"]:checked');
+
       const payload = {
         category: document.getElementById('category').value,
-        requestType: document.querySelector('input[name="requestType"]:checked').value,
-        otherText: otherText.value.trim(),
+        requestType: checkedType ? checkedType.value : 'แจ้งซ่อม',
+        otherText: checkedType && checkedType.value === 'อื่น ๆ' ? otherText.value.trim() : '',
         building: buildingVal,
         location: document.getElementById('location').value.trim(),
         subject: document.getElementById('subject').value.trim(),
         detail: document.getElementById('detail').value.trim(),
-        reporterName: document.getElementById('reporterName').value.trim(),
-        images: attachedImages.map(img => ({
+        reporterName: reporterName,
+        staffPin: staffPin,
+        images: attachedImages.map((img) => ({
           name: img.name,
           mimeType: img.mimeType,
           data: img.data
         }))
       };
 
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'กำลังสร้างใบแจ้งซ่อมและส่งคิวพิมพ์...';
+      setSubmitLoading(true);
 
       try {
         // ใช้ text/plain;charset=utf-8 เพื่อหลีกเลี่ยง CORS Preflight (OPTIONS) กับ Google Apps Script
@@ -540,32 +1097,28 @@
 
         const res = await response.json();
         if (res && res.ok) {
-          statusBox.className = 'alert success';
-          statusBox.innerHTML =
-            `<strong>บันทึกใบแจ้งซ่อมเรียบร้อยแล้ว!</strong><br>` +
-            `รหัสคิวพิมพ์: <b>${res.jobId}</b> | แท็บ: ${res.sheetName} (แถวที่ ${res.rowNumber})<br>` +
-            `ระบบได้ส่งใบแจ้งซ่อมเข้าคิวเครื่องปริ้นอัตโนมัติแล้ว<br>` +
-            `<a class="doc-link" href="${res.docUrl}" target="_blank">เปิดดูเอกสารใบแจ้งซ่อม (Google Doc)</a>`;
+          showSuccess(res);
+
           formEl.reset();
-          buildingCustom.classList.add('hidden');
-          otherText.classList.add('hidden');
+          syncConditionalFields();
+
+          if (rememberMe.checked) {
+            reporterNameInput.value = reporterName;
+            staffPinInput.value = staffPin;
+          }
+
           attachedImages = [];
+          showImageWarning('');
           renderImageGrid();
         } else {
-          showError((res && res.error) ? res.error : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+          showError((res && res.error) ? String(res.error) : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
         }
       } catch (err) {
         showError(err && err.message ? err.message : String(err));
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'ส่งใบแจ้งซ่อม';
+        setSubmitLoading(false);
       }
     });
-
-    function showError(msg) {
-      statusBox.className = 'alert error';
-      statusBox.textContent = 'ไม่สามารถส่งข้อมูลได้: ' + msg;
-    }
   </script>
 </body>
 </html>
