@@ -149,7 +149,6 @@
       resize: vertical;
     }
 
-    /* Keep horizontal pill row just like the original layout */
     .radio-group {
       display: flex;
       flex-wrap: wrap;
@@ -273,6 +272,12 @@
       width: 16px;
       height: 16px;
       accent-color: var(--primary);
+    }
+
+    .staff-sync-note {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 4px;
     }
 
     .btn {
@@ -444,7 +449,6 @@
       display: block;
     }
 
-    /* >=44x44px touch hit target via ::after without cluttering thumbnail */
     .img-card .del-btn {
       position: absolute;
       top: 5px;
@@ -502,21 +506,6 @@
       display: none;
     }
 
-    @keyframes fadeSlideIn {
-      from { opacity: 0; transform: translateY(-4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes cardEnter {
-      from { opacity: 0; transform: scale(0.94); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-
     .footer-credit {
       max-width: 680px;
       margin: 14px auto 0;
@@ -530,6 +519,20 @@
     .footer-credit strong {
       font-weight: 600;
       color: var(--text);
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes cardEnter {
+      from { opacity: 0; transform: scale(0.94); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -652,8 +655,19 @@
 
       <div class="row">
         <div class="field">
-          <label for="reporterName">ชื่อผู้แจ้ง <span class="req" aria-hidden="true">*</span></label>
-          <input type="text" id="reporterName" name="reporterName" required autocomplete="name" placeholder="เช่น นายสมชาย ใจดี">
+          <label for="reporterSelect">ชื่อผู้แจ้ง <span class="req" aria-hidden="true">*</span></label>
+          <select id="reporterSelect" name="reporterSelect" required>
+            <option value="" disabled selected>-- เลือกชื่อผู้แจ้ง --</option>
+          </select>
+          <input
+            type="text"
+            id="reporterCustom"
+            name="reporterCustom"
+            class="conditional-input hidden"
+            placeholder="ระบุชื่อ-นามสกุลผู้แจ้ง"
+            aria-label="ระบุชื่อ-นามสกุลผู้แจ้งเพิ่มเติม"
+          >
+          <div id="staffSyncNote" class="staff-sync-note" aria-live="polite"></div>
         </div>
 
         <div class="field">
@@ -713,9 +727,29 @@
     const STORAGE_KEY_PIN = 'waghor_repair_staff_pin';
     const STORAGE_KEY_REMEMBER = 'waghor_repair_remember';
 
+    // รายชื่อสำรองจากแท็บ "ชีต2" (แสดงทันทีระหว่างรอซิงก์จาก Google Sheets)
+    const FALLBACK_STAFF = [
+      { name: 'นางสาวลัคนา ชำนาญกุล', role: 'ครู' },
+      { name: 'นายนราธิป ลีธีระ', role: 'นักวิชาการศึกษา' },
+      { name: 'นางวันเพ็ญ ผ่องแผ้ว', role: 'นักวิชาการประมง' },
+      { name: 'นางณัฐพัชร จันทร์ดี', role: 'นักวิชาการศึกษา' },
+      { name: 'นางสาวบุษยา เครือแตง', role: 'นักวิชาการประมง' },
+      { name: 'นางสาวบารณี บำรุง', role: 'นักวิชาการประมง' },
+      { name: 'นายเตชินท์ สว่างแวว', role: 'นักวิชาการประมง' },
+      { name: 'นายณัฏฐ์ ดีหริ่ง', role: 'นักวิชาการศึกษา' },
+      { name: 'นายณัฐพล ร่มแก้ว', role: 'นักวิชาการศึกษา' },
+      { name: 'นายพงษ์ศักดิ์ สินทวี', role: 'นักวิชาการศึกษา' },
+      { name: 'นางสาวอภิรดี ปานนิล', role: 'นักวิชาการศึกษา' },
+      { name: 'นายยุทธพงษ์ พรหมน้อย', role: 'นักวิชาการศึกษา' },
+      { name: 'นางสาวกนิษฐา ลีธีระ', role: 'นักวิชาการศึกษา' }
+    ];
+
     const buildingSelect = document.getElementById('buildingSelect');
     const buildingCustom = document.getElementById('buildingCustom');
     const otherText = document.getElementById('otherText');
+    const reporterSelect = document.getElementById('reporterSelect');
+    const reporterCustom = document.getElementById('reporterCustom');
+    const staffSyncNote = document.getElementById('staffSyncNote');
     const formEl = document.getElementById('repairForm');
     const submitBtn = document.getElementById('submitBtn');
     const statusBox = document.getElementById('statusBox');
@@ -725,7 +759,6 @@
     const imgStatus = document.getElementById('imgStatus');
     const imgWarning = document.getElementById('imgWarning');
     const imgCountText = document.getElementById('imgCountText');
-    const reporterNameInput = document.getElementById('reporterName');
     const staffPinInput = document.getElementById('staffPin');
     const pinToggle = document.getElementById('pinToggle');
     const rememberMe = document.getElementById('rememberMe');
@@ -733,19 +766,88 @@
 
     let attachedImages = [];
 
+    function populateStaffOptions(staffList, selectedName) {
+      const currentChoice = selectedName || getSavedReporterName() || '';
+      reporterSelect.textContent = '';
+
+      const placeholderOpt = document.createElement('option');
+      placeholderOpt.value = '';
+      placeholderOpt.disabled = true;
+      placeholderOpt.selected = !currentChoice;
+      placeholderOpt.textContent = '-- เลือกชื่อผู้แจ้ง --';
+      reporterSelect.appendChild(placeholderOpt);
+
+      let matched = false;
+      staffList.forEach((person) => {
+        const name = typeof person === 'string' ? person.trim() : String(person.name || '').trim();
+        if (!name) return;
+        const role = typeof person === 'object' && person.role ? String(person.role).trim() : '';
+
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = role ? `${name} (${role})` : name;
+        if (currentChoice && currentChoice === name) {
+          opt.selected = true;
+          matched = true;
+        }
+        reporterSelect.appendChild(opt);
+      });
+
+      const otherOpt = document.createElement('option');
+      otherOpt.value = '__OTHER__';
+      otherOpt.textContent = 'อื่น ๆ (ระบุชื่อเอง)';
+      if (currentChoice && !matched) {
+        otherOpt.selected = true;
+        reporterCustom.value = currentChoice;
+      }
+      reporterSelect.appendChild(otherOpt);
+
+      syncConditionalFields();
+    }
+
+    function getSavedReporterName() {
+      try {
+        if (localStorage.getItem(STORAGE_KEY_REMEMBER) === 'false') return '';
+        return localStorage.getItem(STORAGE_KEY_NAME) || '';
+      } catch (_) {
+        return '';
+      }
+    }
+
+    async function loadStaffFromSheet() {
+      staffSyncNote.textContent = 'กำลังอัปเดตรายชื่อจาก Google Sheets...';
+      try {
+        const res = await fetch(`${WEB_APP_URL}?action=getStaff`, { method: 'GET' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data && data.ok && Array.isArray(data.staff) && data.staff.length > 0) {
+          const prevVal = reporterSelect.value === '__OTHER__'
+            ? reporterCustom.value.trim()
+            : reporterSelect.value;
+          populateStaffOptions(data.staff, prevVal);
+          staffSyncNote.textContent = `ซิงก์รายชื่อเจ้าหน้าที่ล่าสุดแล้ว (${data.staff.length} คน)`;
+          return;
+        }
+        staffSyncNote.textContent = '';
+      } catch (_) {
+        // กรณียังไม่ได้อัปเดต doGet ใน Apps Script หรือออฟไลน์ จะใช้รายชื่อสำรองอัตโนมัติ
+        staffSyncNote.textContent = '';
+      }
+    }
+
     // Restore remembered reporter name & PIN
-    (function restoreSavedStaff() {
+    (function initStaffAndPin() {
+      populateStaffOptions(FALLBACK_STAFF);
       try {
         const shouldRemember = localStorage.getItem(STORAGE_KEY_REMEMBER);
         if (shouldRemember === 'false') {
           rememberMe.checked = false;
-          return;
+        } else {
+          const savedPin = localStorage.getItem(STORAGE_KEY_PIN);
+          if (savedPin) staffPinInput.value = savedPin;
         }
-        const savedName = localStorage.getItem(STORAGE_KEY_NAME);
-        const savedPin = localStorage.getItem(STORAGE_KEY_PIN);
-        if (savedName) reporterNameInput.value = savedName;
-        if (savedPin) staffPinInput.value = savedPin;
       } catch (_) {}
+      loadStaffFromSheet();
     })();
 
     rememberMe.addEventListener('change', () => {
@@ -948,9 +1050,17 @@
       if (!isOtherType) {
         otherText.value = '';
       }
+
+      const isCustomReporter = reporterSelect.value === '__OTHER__';
+      reporterCustom.classList.toggle('hidden', !isCustomReporter);
+      reporterCustom.required = isCustomReporter;
+      if (!isCustomReporter) {
+        reporterCustom.value = '';
+      }
     }
 
     buildingSelect.addEventListener('change', syncConditionalFields);
+    reporterSelect.addEventListener('change', syncConditionalFields);
     document.querySelectorAll('input[name="requestType"]').forEach((radio) => {
       radio.addEventListener('change', syncConditionalFields);
     });
@@ -1061,12 +1171,25 @@
         ? buildingCustom.value.trim()
         : buildingSelect.value;
 
-      const reporterName = reporterNameInput.value.trim();
+      const selectedReporterVal = reporterSelect.value;
+      const reporterName = selectedReporterVal === '__OTHER__'
+        ? reporterCustom.value.trim()
+        : selectedReporterVal.trim();
       const staffPin = staffPinInput.value.trim();
 
       if (!buildingVal) {
         buildingCustom.focus();
         showError('กรุณาระบุชื่ออาคาร');
+        return;
+      }
+
+      if (!reporterName) {
+        if (selectedReporterVal === '__OTHER__') {
+          reporterCustom.focus();
+        } else {
+          reporterSelect.focus();
+        }
+        showError('กรุณาเลือกหรือระบุชื่อผู้แจ้ง');
         return;
       }
 
@@ -1121,13 +1244,18 @@
           showSuccess(res);
 
           formEl.reset();
-          syncConditionalFields();
 
           if (rememberMe.checked) {
-            reporterNameInput.value = reporterName;
+            if (selectedReporterVal === '__OTHER__') {
+              reporterSelect.value = '__OTHER__';
+              reporterCustom.value = reporterName;
+            } else {
+              reporterSelect.value = selectedReporterVal;
+            }
             staffPinInput.value = staffPin;
           }
 
+          syncConditionalFields();
           attachedImages = [];
           showImageWarning('');
           renderImageGrid();
