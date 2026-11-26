@@ -1,0 +1,6 @@
+SumatraPDF.exe
+SumatraPDF-settings.txt
+__pycache__/
+*.pyc
+*.pdf
+*.png

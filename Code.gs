@@ -1,0 +1,772 @@
+/**
+ * ระบบแจ้งซ่อม/แจ้งติดตั้ง อุทยานวิทยาศาสตร์พระจอมเกล้า ณ หว้ากอ
+ * (คัดลอกโค้ดนี้ไปวางในไฟล์ Code.gs ของ Google Apps Script)
+ * - รับข้อมูลจาก Web App (ทั้งใน Apps Script และหน้าเว็บภายนอก เช่น GitHub Pages ผ่าน doPost)
+ * - สร้างไฟล์ Google Doc จากแม่แบบ (เก็บเฉพาะ Doc ลง Drive)
+ * - บันทึกรายการลง Google Sheets แยกแท็บตามหมวดงาน (งานอาคารสถานที่ / งานเทคนิค)
+ * - เพิ่มคิวลงแท็บ PrintQueue เพื่อให้ Print Agent บนเครื่องคอมดึงไปสั่งปริ้นอัตโนมัติ
+ */
+
+const CONFIG = {
+  SPREADSHEET_ID: '1k47ZtI4e4PMCZO7-VqouOFpVTgEyZHezY0j87bgD1w8',
+  TEMPLATE_DOC_ID: '1P62_Hxuz4c2YnW3nQmzug6wBp6jC5Uo4eGxhOL_dOCA',
+  OUTPUT_FOLDER_ID: '1_zNg4ILVpf1ATLF-hOZopfK2Cmhn4gVv',
+  PRINT_QUEUE_SHEET: 'PrintQueue',
+  // เปลี่ยนรหัสลับนี้ได้ตามต้องการ (ต้องตั้งให้ตรงกับไฟล์ waghor_print_agent.py)
+  PRINT_API_KEY: 'WAGHOR-PRINT-2026-SECRET',
+  // รหัส PIN สำหรับเจ้าหน้าที่กรอกฟอร์ม (แนะนำให้ตั้งใน Project Settings -> Script Properties: STAFF_PIN)
+  // หากไม่ได้ตั้งใน Script Properties สามารถกำหนดรหัสตรงนี้ได้ (ถ้าเว้นว่าง '' คือไม่ตรวจ PIN)
+  STAFF_PIN: ''
+};
+
+const THAI_MONTHS_FULL = [
+  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+];
+
+const THAI_MONTHS_SHORT = [
+  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+];
+
+/**
+ * แสดงหน้าเว็บฟอร์ม หรือให้บริการ API สำหรับ Print Agent
+ */
+function doGet(e) {
+  const params = (e && e.parameter) ? e.parameter : {};
+  const action = params.action || '';
+
+  // API สำหรับโปรแกรม Print Agent บนเครื่องคอมพิวเตอร์
+  if (action) {
+    if (params.key !== CONFIG.PRINT_API_KEY) {
+      return jsonResponse({ ok: false, error: 'Unauthorized: API key ไม่ถูกต้อง' });
+    }
+    if (action === 'queue') {
+      return jsonResponse(getPendingPrintJobs());
+    }
+    if (action === 'pdf') {
+      return jsonResponse(exportDocAsBase64Pdf(params.docId));
+    }
+    if (action === 'markPrinted') {
+      return jsonResponse(markJobPrinted(params.jobId, params.printer || ''));
+    }
+    if (action === 'createTemplate') {
+      return jsonResponse(createPerfectSarabunTemplateDoc());
+    }
+    return jsonResponse({ ok: false, error: 'Unknown action' });
+  }
+
+  // แสดงหน้าเว็บฟอร์มแจ้งซ่อม
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('ระบบแจ้งซ่อม/แจ้งติดตั้ง - หว้ากอ')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * รับข้อมูลจากหน้าเว็บภายนอก (เช่น GitHub Pages) ผ่าน HTTP POST
+ */
+
+/**
+ * ตรวจสอบความปลอดภัยสำหรับคำขอส่งฟอร์ม:
+ * 1) ตรวจรหัส PIN เจ้าหน้าที่ (จาก Script Properties หรือ CONFIG.STAFF_PIN)
+ * 2) จำกัดความถี่การส่ง (Rate Limit) ป้องกันสแปม
+ * 3) ตรวจสอบจำนวนรูปภาพแนบไม่เกิน 6 รูป
+ */
+function verifyPinAndRateLimit_(payload) {
+  // 1) ตรวจรหัส PIN เจ้าหน้าที่ (ถ้าไม่มีการตั้ง PIN ไว้ในระบบ จะข้ามการตรวจโดยอัตโนมัติ)
+  const scriptPropPin = PropertiesService.getScriptProperties().getProperty('STAFF_PIN');
+  const expectedPin = (scriptPropPin || (CONFIG && CONFIG.STAFF_PIN) || '').trim();
+
+  if (expectedPin) {
+    const submittedPin = String((payload && payload.staffPin) || '').trim();
+    if (submittedPin !== expectedPin) {
+      return { ok: false, error: 'รหัสเจ้าหน้าที่ (PIN) ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง' };
+    }
+  }
+
+  // 2) จำกัดจำนวนครั้งการส่ง (Rate Limit) ป้องกันการยิงสแปมสั่งปริ้นรัว ๆ
+  // อนุญาตสูงสุด 10 ใบ ภายใน 10 นาที (600 วินาที)
+  const MAX_REQUESTS = 10;
+  const WINDOW_SECONDS = 600;
+  try {
+    const cache = CacheService.getScriptCache();
+    const key = 'waghor_repair_rate_limit';
+    const currentCount = parseInt(cache.get(key) || '0', 10);
+
+    if (currentCount >= MAX_REQUESTS) {
+      return {
+        ok: false,
+        error: 'มีการส่งใบแจ้งซ่อมถี่เกินกำหนด กรุณารอสักครู่แล้วลองใหม่อีกครั้ง'
+      };
+    }
+    cache.put(key, String(currentCount + 1), WINDOW_SECONDS);
+  } catch (cErr) {
+    Logger.log('Rate limit warning: ' + cErr);
+  }
+
+  // 3) ตรวจจำนวนรูปภาพไม่ให้เกิน 6 รูป
+  if (payload && Array.isArray(payload.images) && payload.images.length > 6) {
+    return { ok: false, error: 'แนบรูปภาพได้สูงสุด 6 รูป' };
+  }
+
+  return { ok: true };
+}
+
+function doPost(e) {
+  try {
+    const raw = (e && e.postData && e.postData.contents) ? e.postData.contents : '{}';
+    const payload = JSON.parse(raw);
+
+    // ตรวจสอบความปลอดภัย: PIN เจ้าหน้าที่, Rate Limit และจำนวนรูปภาพ
+    const guard = verifyPinAndRateLimit_(payload);
+    if (!guard.ok) {
+      return jsonResponse(guard);
+    }
+
+    const result = submitRepairRequest(payload);
+    return jsonResponse(result);
+  } catch (err) {
+    return jsonResponse({
+      ok: false,
+      error: (err && err.message) ? err.message : String(err)
+    });
+  }
+}
+
+/**
+ * ฟังก์ชันหลักที่ถูกเรียกจากหน้าเว็บเมื่อกดส่งฟอร์ม
+ */
+function submitRepairRequest(form) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    const now = new Date();
+    const day = now.getDate();
+    const monthIndex = now.getMonth();
+    const beYear = now.getFullYear() + 543;
+    const beYearShort = String(beYear).slice(-2);
+
+    const sheetDateStr = `${day} ${THAI_MONTHS_SHORT[monthIndex]} ${beYearShort}`;
+    const timestampStr = Utilities.formatDate(now, 'Asia/Bangkok', 'yyyyMMdd_HHmmss');
+
+    const categorySheet = form.category === 'งานเทคนิค' ? 'งานเทคนิค' : 'งานอาคารสถานที่';
+    const requestType = form.requestType || 'แจ้งซ่อม';
+    const otherText = requestType === 'อื่น ๆ' ? (form.otherText || '') : '........................................';
+    const building = (form.building || '').trim();
+    const location = (form.location || '').trim();
+    const subject = (form.subject || '').trim();
+    const detail = (form.detail || '').trim();
+    const reporterName = (form.reporterName || '').trim();
+
+    if (!building || !location || !detail || !reporterName) {
+      throw new Error('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน');
+    }
+
+    // 1. สร้างไฟล์ Google Doc จากแม่แบบ (เก็บเฉพาะ Doc ลง Drive)
+    const fullDetailForDoc = detail;
+    const docSubject = subject || `${requestType} (${building} - ${location})`;
+    const docTitle = `ใบแจ้งซ่อม_${timestampStr}_${building}_${location}`.slice(0, 120);
+
+    const templateFile = DriveApp.getFileById(CONFIG.TEMPLATE_DOC_ID);
+    const outputFolder = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
+    const newDocFile = templateFile.makeCopy(docTitle, outputFolder);
+    // ตั้งค่าสิทธิ์ให้ทุกคนที่มีลิงก์สามารถเปิดดูได้ทันที (Anyone with the link can view)
+    try {
+      newDocFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (shareErr) {
+      Logger.log('Set sharing error: ' + shareErr);
+    }
+    const newDocId = newDocFile.getId();
+    const newDocUrl = newDocFile.getUrl();
+
+    const doc = DocumentApp.openById(newDocId);
+    const body = doc.getBody();
+    // บังคับขนาดหน้ากระดาษเป็น A4 มาตรฐาน (210 x 297 มม.) แน่นอน 100%
+    try {
+      body.setPageWidth(595.28);
+      body.setPageHeight(841.89);
+    } catch (pageErr) {}
+    body.replaceText('\\{\\{DAY\\}\\}', String(day));
+    body.replaceText('\\{\\{MONTH\\}\\}', THAI_MONTHS_FULL[monthIndex]);
+    body.replaceText('\\{\\{YEAR\\}\\}', String(beYear));
+    body.replaceText('\\{\\{SUBJECT\\}\\}', escapeRegex(docSubject));
+    body.replaceText('\\{\\{CHK_INSTALL\\}\\}', requestType === 'แจ้งติดตั้ง' ? '☑' : '☐');
+    body.replaceText('\\{\\{CHK_REPAIR\\}\\}', requestType === 'แจ้งซ่อม' ? '☑' : '☐');
+    body.replaceText('\\{\\{CHK_OTHER\\}\\}', requestType === 'อื่น ๆ' ? '☑' : '☐');
+    body.replaceText('\\{\\{OTHER_TEXT\\}\\}', escapeRegex(otherText));
+    body.replaceText('\\{\\{DETAIL\\}\\}', escapeRegex(fullDetailForDoc));
+    body.replaceText('\\{\\{REPORTER_NAME\\}\\}', escapeRegex(reporterName));
+
+    // คงรูปแบบ ฟอนต์ ขนาดตัวอักษร และระยะขอบเดิมตามแม่แบบ (Template) 100%
+    // หากมีการแนบภาพ ให้เพิ่มภาพลงในหน้าที่ 2 โดยปรับขนาดและสัดส่วนให้เหมาะสมกับกระดาษ A4 อัตโนมัติ
+    if (form.images && Array.isArray(form.images) && form.images.length > 0) {
+      try {
+        appendImagesToDoc(body, form.images, building, location, reporterName);
+      } catch (imgErr) {
+        Logger.log('Error appending images: ' + imgErr);
+      }
+    }
+
+    doc.saveAndClose();
+
+    // 2. ค้นหาแท็บตามหมวดงานที่เลือก (แยกหน้าชัดเจนระหว่าง งานอาคารฯ และ งานช่างเทคนิค)
+    const isTech = String(form.category || '').includes('เทคนิค') || String(form.category || '').includes('ช่าง');
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const allSheets = ss.getSheets();
+    let sheet = null;
+
+    // รายการชื่อแท็บที่เป็นไปได้สำหรับแต่ละหมวด
+    const techKeywords = ['งานช่างเทคนิค', 'ช่างเทคนิค', 'งานเทคนิค', 'เทคนิค'];
+    const bldKeywords = ['งานอาคารสถานที่', 'งานอาคารฯ', 'อาคารสถานที่', 'งานอาคาร', 'อาคาร'];
+    const targetKeywords = isTech ? techKeywords : bldKeywords;
+
+    // 1) ค้นหาชื่อแท็บแบบตรงตัวก่อน
+    for (let k = 0; k < targetKeywords.length; k++) {
+      sheet = ss.getSheetByName(targetKeywords[k]);
+      if (sheet) break;
+    }
+
+    // 2) ถ้ายังไม่พบ ให้ค้นหาจากคำในชื่อแท็บ (ข้ามแท็บ PrintQueue)
+    if (!sheet) {
+      for (let i = 0; i < allSheets.length; i++) {
+        const sName = allSheets[i].getName().trim();
+        if (sName === CONFIG.PRINT_QUEUE_SHEET) continue;
+        if (isTech && (sName.includes('เทคนิค') || sName.includes('ช่าง'))) {
+          sheet = allSheets[i];
+          break;
+        } else if (!isTech && (sName.includes('อาคาร') || sName.includes('สถานที่'))) {
+          sheet = allSheets[i];
+          break;
+        }
+      }
+    }
+
+    // 3) หากยังไม่พบ ให้ใช้แท็บแรกที่ไม่ใช่ PrintQueue
+    if (!sheet) {
+      for (let i = 0; i < allSheets.length; i++) {
+        if (allSheets[i].getName().trim() !== CONFIG.PRINT_QUEUE_SHEET) {
+          sheet = allSheets[i];
+          break;
+        }
+      }
+      if (!sheet) sheet = allSheets[0];
+    }
+
+    const actualSheetName = sheet.getName();
+
+    const targetRow = findNextAvailableRow(sheet, 4);
+    const existingNo = sheet.getRange(targetRow, 1).getValue();
+    if (!existingNo) {
+      sheet.getRange(targetRow, 1).setValue(targetRow - 3);
+    }
+
+    // เขียนเฉพาะคอลัมน์ B ถึง E (4 คอลัมน์) เท่านั้น
+    // คอลัมน์ F เป็นต้นไป (สถานะ, วันที่แล้วเสร็จ, ผู้บันทึก ฯลฯ) ปล่อยว่างไว้ให้ผู้รับเอกสารจัดการ
+    const sheetItemText = subject
+      ? `${subject}: ${detail} (ผู้แจ้ง: ${reporterName})`
+      : `${detail} (ผู้แจ้ง: ${reporterName})`;
+
+    const standardBuildings = ['พิพิธภัณฑ์สัตว์น้ำ', 'เพาะเลี้ยงสัตว์น้ำ', 'สุขภาพสัตว์น้ำ'];
+    let colBuilding = building;
+    let colLocation = location;
+
+    // ปลดล็อก Data Validation ที่เซลล์คอลัมน์ B ในแถวนี้ล่วงหน้า (ถ้ามี)
+    try {
+      sheet.getRange(targetRow, 2).setDataValidation(null);
+      sheet.getRange(targetRow, 2).clearDataValidations();
+    } catch (e) {}
+
+    // คอลัมน์ B: อาคาร, C: สถานที่/ตู้จัดแสดง, D: รายการ, E: วันที่แจ้ง
+    try {
+      sheet.getRange(targetRow, 2, 1, 4).setValues([[
+        colBuilding,
+        colLocation,
+        sheetItemText,
+        sheetDateStr
+      ]]);
+    } catch (valErr) {
+      // หาก Google Sheets มี Dropdown ล็อกคอลัมน์ B ไว้ไม่ให้ป้อนชื่ออื่น
+      // ให้เลือกอาคารมาตรฐานตัวแรก แล้วนำชื่ออาคารที่ระบุเองไปใส่ในช่องสถานที่แทน บันทึกผ่าน 100%
+      colBuilding = standardBuildings.includes(building) ? building : 'พิพิธภัณฑ์สัตว์น้ำ';
+      colLocation = standardBuildings.includes(building) ? location : `${building} - ${location}`;
+      sheet.getRange(targetRow, 2, 1, 4).setValues([[
+        colBuilding,
+        colLocation,
+        sheetItemText,
+        sheetDateStr
+      ]]);
+    }
+
+    // 3. เพิ่มคิวลงแท็บ PrintQueue เพื่อให้เครื่องคอมที่ต่อเครื่องปริ้นดึงไปพิมพ์
+    const jobId = `JOB-${timestampStr}-${Math.floor(100 + Math.random() * 900)}`;
+    enqueuePrintJob(ss, {
+      jobId: jobId,
+      createdAt: Utilities.formatDate(now, 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss'),
+      category: actualSheetName,
+      docId: newDocId,
+      docTitle: docTitle,
+      docUrl: newDocUrl,
+      reporterName: reporterName
+    });
+
+    return {
+      ok: true,
+      jobId: jobId,
+      sheetName: actualSheetName,
+      rowNumber: targetRow,
+      docUrl: newDocUrl,
+      docTitle: docTitle
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * หาแถวว่างแถวแรกตั้งแต่ startRow โดยดูจากคอลัมน์ B (อาคาร) และ D (รายการ)
+ */
+function findNextAvailableRow(sheet, startRow) {
+  const maxRows = Math.max(sheet.getLastRow(), startRow);
+  const values = sheet.getRange(startRow, 2, maxRows - startRow + 1, 3).getValues();
+  for (let i = 0; i < values.length; i++) {
+    const colB = String(values[i][0] || '').trim();
+    const colD = String(values[i][2] || '').trim();
+    if (!colB && !colD) {
+      return startRow + i;
+    }
+  }
+  return maxRows + 1;
+}
+
+/**
+ * สร้างหรือดึงแท็บ PrintQueue แล้วเพิ่มคิวพิมพ์ใหม่
+ */
+function enqueuePrintJob(ss, job) {
+  let qSheet = ss.getSheetByName(CONFIG.PRINT_QUEUE_SHEET);
+  if (!qSheet) {
+    qSheet = ss.insertSheet(CONFIG.PRINT_QUEUE_SHEET);
+    qSheet.appendRow([
+      'JobID', 'CreatedAt', 'Status', 'Category', 'DocID', 'DocTitle', 'DocURL', 'Reporter', 'PrintedAt', 'Printer'
+    ]);
+    qSheet.setFrozenRows(1);
+  }
+  qSheet.appendRow([
+    job.jobId,
+    job.createdAt,
+    'PENDING',
+    job.category,
+    job.docId,
+    job.docTitle,
+    job.docUrl,
+    job.reporterName,
+    '',
+    ''
+  ]);
+}
+
+/**
+ * API: คืนรายการคิวที่ยังไม่ได้พิมพ์ (Status === 'PENDING')
+ */
+function getPendingPrintJobs() {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const qSheet = ss.getSheetByName(CONFIG.PRINT_QUEUE_SHEET);
+  if (!qSheet || qSheet.getLastRow() < 2) {
+    return { ok: true, jobs: [] };
+  }
+
+  const data = qSheet.getRange(2, 1, qSheet.getLastRow() - 1, 8).getValues();
+  const jobs = [];
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][2]).trim().toUpperCase() === 'PENDING') {
+      jobs.push({
+        jobId: data[i][0],
+        createdAt: data[i][1],
+        category: data[i][3],
+        docId: data[i][4],
+        docTitle: data[i][5],
+        reporter: data[i][7]
+      });
+    }
+  }
+  return { ok: true, jobs: jobs };
+}
+
+/**
+ * API: แปลง Google Doc เป็น PDF ผ่าน Export URL (ตรงกับที่เห็นในหน้า Doc ทุกประการ ทั้งฟอนต์ ขนาด ระยะขอบ)
+ */
+function exportDocAsBase64Pdf(docId) {
+  if (!docId) {
+    return { ok: false, error: 'Missing docId' };
+  }
+  try {
+    // ใช้ Export URL ซึ่งให้ PDF ตรงกับที่เห็นในหน้า Google Doc มากที่สุด (รวมฟอนต์ไทย)
+    const exportUrl = 'https://docs.google.com/document/d/' + docId + '/export?format=pdf';
+    const response = UrlFetchApp.fetch(exportUrl, {
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() !== 200) {
+      // Fallback ใช้ DriveApp ถ้า Export URL ไม่สำเร็จ
+      const file = DriveApp.getFileById(docId);
+      const pdfBlob = file.getAs(MimeType.PDF);
+      return {
+        ok: true,
+        docId: docId,
+        fileName: file.getName() + '.pdf',
+        pdfBase64: Utilities.base64Encode(pdfBlob.getBytes())
+      };
+    }
+    const pdfBlob = response.getBlob();
+    const fileName = DriveApp.getFileById(docId).getName() + '.pdf';
+    return {
+      ok: true,
+      docId: docId,
+      fileName: fileName,
+      pdfBase64: Utilities.base64Encode(pdfBlob.getBytes())
+    };
+  } catch (e) {
+    // Fallback สุดท้าย
+    const file = DriveApp.getFileById(docId);
+    const pdfBlob = file.getAs(MimeType.PDF);
+    return {
+      ok: true,
+      docId: docId,
+      fileName: file.getName() + '.pdf',
+      pdfBase64: Utilities.base64Encode(pdfBlob.getBytes())
+    };
+  }
+}
+
+/**
+ * API: อัปเดตสถานะคิวเป็น PRINTED หลังเครื่องปริ้นพิมพ์สำเร็จ
+ */
+function markJobPrinted(jobId, printerName) {
+  if (!jobId) {
+    return { ok: false, error: 'Missing jobId' };
+  }
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const qSheet = ss.getSheetByName(CONFIG.PRINT_QUEUE_SHEET);
+  if (!qSheet || qSheet.getLastRow() < 2) {
+    return { ok: false, error: 'PrintQueue empty' };
+  }
+
+  const ids = qSheet.getRange(2, 1, qSheet.getLastRow() - 1, 1).getValues();
+  const nowStr = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(jobId)) {
+      const row = i + 2;
+      qSheet.getRange(row, 3).setValue('PRINTED');
+      qSheet.getRange(row, 9).setValue(nowStr);
+      qSheet.getRange(row, 10).setValue(printerName);
+      return { ok: true, jobId: jobId, printedAt: nowStr };
+    }
+  }
+  return { ok: false, error: 'Job not found: ' + jobId };
+}
+
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function escapeRegex(str) {
+  return String(str).replace(/[$]/g, '$$$$');
+}
+
+/**
+ * แนบภาพประกอบการแจ้งซ่อมลงในหน้าที่ 2 ของเอกสาร
+ * - ขนาดและรูปแบบตารางแปรผันตามจำนวนภาพ
+ * - คำนวณสัดส่วน (Aspect Ratio) ให้คงที่ ไม่บิดเบี้ยว
+ * - คุมความกว้าง/ความสูงไม่ให้ล้นหน้า 2 พอดีกระดาษ A4
+ */
+function appendImagesToDoc(body, images, building, location, reporterName) {
+  if (!images || images.length === 0) return;
+
+  // 1. แยกขึ้นหน้าที่ 2 เสมอ
+  body.appendPageBreak();
+
+  // 2. หัวข้อในหน้าที่ 2
+  const titleP = body.appendParagraph('ภาพประกอบการแจ้งซ่อม / แจ้งติดตั้ง');
+  titleP.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  titleP.setFontFamily('Sarabun');
+  titleP.setFontSize(16);
+  titleP.setBold(true);
+  titleP.setSpacingBefore(0);
+  titleP.setSpacingAfter(4);
+
+  const subP = body.appendParagraph(`${building} - ${location} (ผู้แจ้ง: ${reporterName})`);
+  subP.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  subP.setFontFamily('Sarabun');
+  subP.setFontSize(12);
+  subP.setForegroundColor('#555555');
+  subP.setSpacingAfter(12);
+
+  const numImages = images.length;
+
+  if (numImages === 1) {
+    // 1 รูป: วางกึ่งกลางขนาดใหญ่เต็มหน้า สัดส่วนพอดีกระดาษ A4
+    const p = body.appendParagraph('');
+    p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    p.setSpacingAfter(0);
+    const blob = Utilities.newBlob(
+      Utilities.base64Decode(getCleanBase64(images[0].data)),
+      images[0].mimeType || 'image/jpeg',
+      'photo_1.jpg'
+    );
+    const inlineImg = p.appendInlineImage(blob);
+    fitImage(inlineImg, 460, 560);
+
+  } else if (numImages === 2) {
+    // 2 รูป: ตรวจสอบรูปทรง
+    // หากเป็นแนวนอนทั้งคู่ (กว้างกว่าสูง) -> จัดเรียงบน-ล่าง ได้ภาพใหญ่เต็มตา
+    // หากเป็นแนวตั้ง -> จัดวางเคียงข้างกันในตาราง 2 คอลัมน์
+    const b0 = Utilities.newBlob(Utilities.base64Decode(getCleanBase64(images[0].data)), images[0].mimeType || 'image/jpeg', 'img0');
+    const b1 = Utilities.newBlob(Utilities.base64Decode(getCleanBase64(images[1].data)), images[1].mimeType || 'image/jpeg', 'img1');
+
+    const tempP = body.appendParagraph('');
+    tempP.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    tempP.setSpacingAfter(8);
+    const img0 = tempP.appendInlineImage(b0);
+    const w0 = img0.getWidth();
+    const h0 = img0.getHeight();
+
+    if (w0 >= h0) {
+      // แนวนอน: วางซ้อนบน-ล่าง
+      fitImage(img0, 450, 260);
+      const p2 = body.appendParagraph('');
+      p2.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      p2.setSpacingAfter(0);
+      const img1 = p2.appendInlineImage(b1);
+      fitImage(img1, 450, 260);
+    } else {
+      // แนวตั้ง: วางข้างกัน 2 คอลัมน์
+      tempP.removeFromParent();
+      const table = body.appendTable();
+      table.setBorderWidth(0);
+      const row = table.appendTableRow();
+
+      const c1 = row.appendTableCell();
+      c1.setWidth(235).setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(4).setPaddingRight(4);
+      const p1 = c1.getChild(0).asParagraph();
+      p1.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      const i0 = p1.appendInlineImage(b0);
+      fitImage(i0, 225, 480);
+
+      const c2 = row.appendTableCell();
+      c2.setWidth(235).setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(4).setPaddingRight(4);
+      const p2 = c2.getChild(0).asParagraph();
+      p2.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      const i1 = p2.appendInlineImage(b1);
+      fitImage(i1, 225, 480);
+    }
+
+  } else if (numImages === 3 || numImages === 4) {
+    // 3-4 รูป: ตาราง 2 คอลัมน์ x 2 แถว พอดีหน้า 2 สัดส่วนสมดุล 100%
+    const table = body.appendTable();
+    table.setBorderWidth(0);
+
+    for (let r = 0; r < 2; r++) {
+      const row = table.appendTableRow();
+      for (let c = 0; c < 2; c++) {
+        const idx = r * 2 + c;
+        const cell = row.appendTableCell();
+        cell.setWidth(235).setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(3).setPaddingRight(3);
+
+        if (idx < numImages) {
+          const p = cell.getChild(0).asParagraph();
+          p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+          const blob = Utilities.newBlob(
+            Utilities.base64Decode(getCleanBase64(images[idx].data)),
+            images[idx].mimeType || 'image/jpeg',
+            `photo_${idx + 1}.jpg`
+          );
+          const inlineImg = p.appendInlineImage(blob);
+          fitImage(inlineImg, 225, 250);
+        } else {
+          cell.getChild(0).asParagraph().setText('');
+        }
+      }
+    }
+
+  } else {
+    // 5-6 รูป (หรือมากกว่า): ตาราง 2 คอลัมน์ ปรับความสูงตามจำนวนแถวไม่ให้ล้นหน้า 2
+    const numRows = Math.ceil(numImages / 2);
+    const maxCellH = Math.max(120, Math.floor(520 / numRows));
+    const table = body.appendTable();
+    table.setBorderWidth(0);
+
+    for (let r = 0; r < numRows; r++) {
+      const row = table.appendTableRow();
+      for (let c = 0; c < 2; c++) {
+        const idx = r * 2 + c;
+        const cell = row.appendTableCell();
+        cell.setWidth(235).setPaddingTop(2).setPaddingBottom(2).setPaddingLeft(3).setPaddingRight(3);
+
+        if (idx < numImages) {
+          const p = cell.getChild(0).asParagraph();
+          p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+          const blob = Utilities.newBlob(
+            Utilities.base64Decode(getCleanBase64(images[idx].data)),
+            images[idx].mimeType || 'image/jpeg',
+            `photo_${idx + 1}.jpg`
+          );
+          const inlineImg = p.appendInlineImage(blob);
+          fitImage(inlineImg, 225, maxCellH);
+        } else {
+          cell.getChild(0).asParagraph().setText('');
+        }
+      }
+    }
+  }
+}
+
+/**
+ * ปรับขนาดรูปภาพตามความกว้างและความสูงสูงสุด โดยรักษาอัตราส่วนเดิม (Aspect Ratio) 100%
+ */
+function fitImage(inlineImg, maxW, maxH) {
+  try {
+    const origW = inlineImg.getWidth();
+    const origH = inlineImg.getHeight();
+    if (!origW || !origH) return;
+    const ratio = Math.min(maxW / origW, maxH / origH);
+    const targetW = Math.max(10, Math.round(origW * ratio));
+    const targetH = Math.max(10, Math.round(origH * ratio));
+    inlineImg.setWidth(targetW);
+    inlineImg.setHeight(targetH);
+  } catch (e) {
+    Logger.log('fitImage warning: ' + e);
+  }
+}
+
+function getCleanBase64(data) {
+  if (!data) return '';
+  const commaIdx = data.indexOf(',');
+  if (commaIdx !== -1) {
+    return data.substring(commaIdx + 1);
+  }
+  return data;
+}
+
+/**
+ * ฟังก์ชันสร้างไฟล์แม่แบบใหม่ (Sarabun 100%) อัตโนมัติลงใน Google Drive
+ * - ใช้ฟอนต์ Sarabun ทั้งฉบับ ถูกต้องตามระเบียบงานสารบรรณ
+ * - จัดระยะขอบและขนาดตัวอักษรให้จบในหน้า 1 หน้าเดียวเป๊ะ (ไม่ล้นไปหน้า 2)
+ * - เมื่อแนบภาพ ภาพจะต่อในหน้าที่ 2 พอดีเสมอ
+ * (สามารถกดปุ่ม "เรียกใช้" (Run) ฟังก์ชันนี้ได้โดยตรงใน Apps Script)
+ */
+function createPerfectSarabunTemplateDoc() {
+  const folder = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
+  const doc = DocumentApp.create('Template_ใบแจ้งซ่อม_Sarabun_หว้ากอ');
+  const file = DriveApp.getFileById(doc.getId());
+  folder.addFile(file);
+  DriveApp.getRootFolder().removeFile(file);
+
+  const body = doc.getBody();
+  body.setMarginTop(36);
+  body.setMarginBottom(36);
+  body.setMarginLeft(54);
+  body.setMarginRight(54);
+
+  // เคลียร์และใช้ย่อหน้าแรก
+  body.clear();
+  const firstP = body.getChild(0).asParagraph();
+  firstP.editAsText().setText('ใบแจ้งซ่อม/แจ้งติดตั้ง');
+  firstP.setFontFamily('Sarabun');
+  firstP.setFontSize(16);
+  firstP.setBold(true);
+  firstP.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  firstP.setSpacingAfter(2);
+
+  function addP(text, opts) {
+    const p = body.appendParagraph(text || '');
+    p.setFontFamily('Sarabun');
+    p.setFontSize((opts && opts.size) || 14);
+    p.setBold(!!(opts && opts.bold));
+    if (opts && opts.align) p.setAlignment(opts.align);
+    p.setSpacingBefore((opts && opts.before !== undefined) ? opts.before : 0);
+    p.setSpacingAfter((opts && opts.after !== undefined) ? opts.after : 2);
+    p.setLineSpacing((opts && opts.lineSpacing) || 1.15);
+    return p;
+  }
+
+  // 1. บรรทัดรองหัวเรื่อง
+  addP('อุทยานวิทยาศาสตร์พระจอมเกล้า ณ หว้ากอ จังหวัดประจวบคีรีขันธ์', { size: 15, bold: true, align: DocumentApp.HorizontalAlignment.CENTER, after: 8 });
+
+  // 2. ส่วนราชการและวันที่ (จัดเป็น 2 คอลัมน์ด้วยตารางไร้ขอบ เพื่อให้ซ้าย-ขวาตรงกันเป๊ะ ไม่ตกบรรทัด)
+  const headerTable = body.appendTable([
+    ['ส่วนราชการ กลุ่มพิพิธภัณฑ์สัตว์น้ำ', 'วันที่ {{DAY}} เดือน {{MONTH}} พ.ศ. {{YEAR}}']
+  ]);
+  headerTable.setBorderWidth(0);
+  const cellL = headerTable.getRow(0).getCell(0);
+  const cellR = headerTable.getRow(0).getCell(1);
+  cellL.setWidth(240).setPaddingTop(0).setPaddingBottom(2).setPaddingLeft(0).setPaddingRight(0);
+  cellR.setWidth(240).setPaddingTop(0).setPaddingBottom(2).setPaddingLeft(0).setPaddingRight(0);
+
+  const pL = cellL.getChild(0).asParagraph();
+  pL.setFontFamily('Sarabun');
+  pL.setFontSize(14);
+  pL.editAsText().setBold(0, 10, true);
+
+  const pR = cellR.getChild(0).asParagraph();
+  pR.setFontFamily('Sarabun');
+  pR.setFontSize(14);
+  pR.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
+
+  // 3. เรื่อง และ เรียน
+  const pSubj = addP('เรื่อง {{SUBJECT}}', { size: 14, after: 2 });
+  pSubj.editAsText().setBold(0, 4, true);
+
+  const pDear = addP('เรียน หัวหน้ากลุ่มสนับสนุนและบริการ', { size: 14, after: 6 });
+  pDear.editAsText().setBold(0, 3, true);
+
+  // เส้นคั่นแนวนอน
+  body.appendHorizontalRule();
+
+  // 4. ส่วนที่ ๑ การแจ้ง
+  const pSec1 = addP('ส่วนที่ ๑ การแจ้ง    {{CHK_INSTALL}} แจ้งติดตั้ง    {{CHK_REPAIR}} แจ้งซ่อม    {{CHK_OTHER}} อื่น ๆ {{OTHER_TEXT}}', { size: 14, before: 6, after: 4 });
+  pSec1.editAsText().setBold(0, 13, true);
+
+  const pDet = addP('รายละเอียดการแจ้ง  {{DETAIL}}', { size: 14, after: 10 });
+  pDet.editAsText().setBold(0, 16, true);
+  const detStart = pDet.getText().indexOf('{{DETAIL}}');
+  if (detStart !== -1) {
+    pDet.editAsText().setUnderline(detStart, detStart + 9, true);
+  }
+
+  // ลายเซ็นผู้แจ้ง
+  addP('...........................................................................ผู้แจ้ง', { size: 14, align: DocumentApp.HorizontalAlignment.RIGHT, after: 2 });
+  addP('({{REPORTER_NAME}})', { size: 14, align: DocumentApp.HorizontalAlignment.RIGHT, after: 8 });
+
+  // 5. ความคิดเห็นหัวหน้ากลุ่ม
+  const pOpinion = addP('ความคิดเห็นหัวหน้ากลุ่มสนับสนุนและบริการ', { size: 14, bold: true, after: 4 });
+  addP('..........................................................................................................................................................', { size: 14, after: 3 });
+  addP('..........................................................................................................................................................', { size: 14, after: 6 });
+  addP('...........................................................................หัวหน้ากลุ่มสนับสนุนและบริการ', { size: 14, align: DocumentApp.HorizontalAlignment.RIGHT, after: 2 });
+  addP('(.........................................................................)', { size: 14, align: DocumentApp.HorizontalAlignment.RIGHT, after: 2 });
+  addP('............/............../............', { size: 14, align: DocumentApp.HorizontalAlignment.RIGHT, after: 8 });
+
+  // 6. ส่วนที่ ๒ ผลการดำเนินการ
+  const pSec2 = addP('ส่วนที่ ๒ ผลการดำเนินการ', { size: 14, bold: true, after: 4 });
+  addP('รายละเอียดการซ่อม        ☐ ซ่อมได้        ☐ ซ่อมไม่ได้', { size: 14, after: 4 });
+  addP('..........................................................................................................................................................', { size: 14, after: 8 });
+
+  // 7. ส่วนที่ ๓ ผลการดำเนินงาน
+  const pSec3 = addP('ส่วนที่ ๓ ผลการดำเนินงาน', { size: 14, bold: true, after: 4 });
+  addP('...........................................................................ผู้รับ/ตรวจงาน', { size: 14, align: DocumentApp.HorizontalAlignment.RIGHT, after: 2 });
+  addP('(.........................................................................)', { size: 14, align: DocumentApp.HorizontalAlignment.RIGHT, after: 2 });
+  addP('............/............../............', { size: 14, align: DocumentApp.HorizontalAlignment.RIGHT, after: 0 });
+
+  doc.saveAndClose();
+
+  Logger.log('=== สร้างเทมเพลต Sarabun สำเร็จ! ===');
+  Logger.log('Doc ID: ' + doc.getId());
+  Logger.log('Doc URL: ' + doc.getUrl());
+
+  return {
+    ok: true,
+    docId: doc.getId(),
+    docUrl: doc.getUrl()
+  };
+}

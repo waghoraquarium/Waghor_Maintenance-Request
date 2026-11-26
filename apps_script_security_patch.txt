@@ -1,0 +1,58 @@
+// =========================================================================
+// ส่วนเสริมความปลอดภัยสำหรับ Google Apps Script (วางไว้ต้นฟังก์ชัน doPost(e))
+// 1. ตั้งค่ารหัส PIN ที่: Project Settings -> Script Properties
+//    - Property: STAFF_PIN
+//    - Value:    เช่น 1234 (รหัสที่เจ้าหน้าที่ใช้ร่วมกัน ไม่ต้องใส่ในโค้ด GitHub)
+// 2. กด Deploy -> Manage deployments -> Edit -> New version -> Deploy
+// =========================================================================
+
+function verifyPinAndRateLimit_(payload) {
+  // 1) ตรวจรหัส PIN เจ้าหน้าที่
+  const expectedPin = PropertiesService.getScriptProperties().getProperty('STAFF_PIN');
+  if (expectedPin) {
+    const submittedPin = String(payload.staffPin || '').trim();
+    if (submittedPin !== expectedPin) {
+      return { ok: false, error: 'รหัสเจ้าหน้าที่ (PIN) ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง' };
+    }
+  }
+
+  // 2) จำกัดจำนวนครั้งการส่ง (Rate Limit) ป้องกันยิงสแปมสั่งปริ้นรัว ๆ
+  // ตัวอย่าง: ไม่เกิน 10 ใบ ภายใน 10 นาที (600 วินาที)
+  const MAX_REQUESTS = 10;
+  const WINDOW_SECONDS = 600;
+  const cache = CacheService.getScriptCache();
+  const key = 'waghor_repair_rate_limit';
+  const currentCount = parseInt(cache.get(key) || '0', 10);
+
+  if (currentCount >= MAX_REQUESTS) {
+    return {
+      ok: false,
+      error: 'มีการส่งใบแจ้งซ่อมถี่เกินกำหนด กรุณารอสักครู่แล้วลองใหม่อีกครั้ง'
+    };
+  }
+  cache.put(key, String(currentCount + 1), WINDOW_SECONDS);
+
+  // 3) ตรวจจำนวนรูปภาพไม่ให้เกิน 6 รูป
+  if (Array.isArray(payload.images) && payload.images.length > 6) {
+    return { ok: false, error: 'แนบรูปภาพได้สูงสุด 6 รูป' };
+  }
+
+  return { ok: true };
+}
+
+/*
+--- ตัวอย่างการเรียกใช้ใน doPost(e) ---
+
+function doPost(e) {
+  const payload = JSON.parse(e.postData.contents || '{}');
+
+  const guard = verifyPinAndRateLimit_(payload);
+  if (!guard.ok) {
+    return ContentService
+      .createTextOutput(JSON.stringify(guard))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ... โค้ดสร้าง Google Doc, บันทึก Sheet และส่งคิวพิมพ์เดิมของคุณ ...
+}
+*/
